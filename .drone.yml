@@ -1,0 +1,5 @@
+pipeline:
+  debug:
+    image: alpine
+    commands:
+      - ls
