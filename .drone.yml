@@ -1,5 +1,8 @@
 pipeline:
-  debug:
-    image: alpine
-    commands:
+  whiteblock-build:
+    image: appleboy/drone-ssh
+    host: 34.73.93.57
+    secrets: [ ssh_username, ssh_key ]
+    script:
+      - echo foo
       - ls
