@@ -51,27 +51,25 @@ class TestPlanWorker:
             '--blockchain=rchain',
             '--nodes={}'.format(total_num_nodes),
             '--validators={}'.format(validator),
-            '--cpus=""',
-            '--memory=""',
+            '--cpus=0',
+            '--memory=0',
             '--yes',
         ]
 
         # Network Build
         print "Building the Network ..."
         print(whiteblock_build_command)
-        subprocess.call(whiteblock_build_command)
+        os.system(' '.join(whiteblock_build_command))
         print "Finish Building the Network."
 
         # Network Config
         print "Configuring Network ..."
-        print('whiteblock netconfig delay ' + str(network_latency))
-        os.system('whiteblock netconfig delay ' + str(network_latency))
-        print('whiteblock netconfig loss ' + str(packetloss))
-        os.system('whiteblock netconfig loss ' + str(packetloss))
-        print('whiteblock netconfig bw ' + bandwidth)
-        os.system('whiteblock netconfig bw ' + bandwidth)
-        print('whiteblock netconfig on')
-        os.system('whiteblock netconfig on')
+        print('whiteblock netconfig set --delay ' + str(network_latency))
+        os.system('whiteblock netconfig set --delay ' + str(network_latency))
+        print('whiteblock netconfig set --loss ' + str(packetloss))
+        os.system('whiteblock netconfig set --loss ' + str(packetloss))
+        print('whiteblock netconfig set --bandwidth ' + bandwidth)
+        os.system('whiteblock netconfig set --bandwidth ' + bandwidth)
         print "Finish Configuring Network."
 
         # Deploy smart contract
@@ -83,10 +81,7 @@ class TestPlanWorker:
     # Reset the network configuration
     def reset_test_case(self, case_params):
         print "Reset Network Params ..."
-        os.system('whiteblock netconfig delay 0')
-        os.system('whiteblock netconfig loss 0')
-        os.system('whiteblock netconfig bw 1 Gbps')
-        os.system('whiteblock netconfig off')
+        os.system('whiteblock netconfig clear')
         print "Reset Finished."
 
 
@@ -136,7 +131,7 @@ if __name__ == '__main__':
             errorMsg = "Unable to find test plan; Test plan should be in a yaml file \n"
 
 
-    if(errorFlag):
+    if errorFlag:
         print '[ERROR]' + errorMsg
         sys.exit('System will exit')
     else:
