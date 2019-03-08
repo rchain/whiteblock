@@ -45,10 +45,21 @@ class TestPlanWorker:
         network_latency = case_params['network_latency']
         packetloss = case_params['packetloss']
 
+        whiteblock_build_command = [
+            'whiteblock',
+            'build',
+            '--blockchain=rchain',
+            '--nodes={}'.format(total_num_nodes),
+            '--validators={}'.format(validator),
+            '--cpus=""',
+            '--memory=""',
+            '--yes',
+        ]
+
         # Network Build
         print "Building the Network ..."
-        print('whiteblock build -n ' + str(total_num_nodes) + ' -v ' + str(validator) + ' -b rchain -y')
-        os.system('whiteblock build -n ' + str(total_num_nodes) + ' -v ' + str(validator) + ' -b rchain -y')
+        print(whiteblock_build_command)
+        subprocess.call(whiteblock_build_command)
         print "Finish Building the Network."
 
         # Network Config
