@@ -7,6 +7,6 @@ pipeline:
     script:
       - rm --recursive --force whiteblock
       - git clone https://github.com/rchain/whiteblock.git
-      - cd whiteblock/test-plan
+      - cd whiteblock
       - whiteblock build stop
       - python test_script.py
