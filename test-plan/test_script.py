@@ -9,7 +9,13 @@ import os
 import json
 import time
 import yaml
+import logging
 from optparse import OptionParser
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
+
 
 class TestPlanWorker:
     def __init__(self, test_name, test_plan_file, test_period):
@@ -56,28 +62,20 @@ class TestPlanWorker:
             '--yes',
         ]
 
-        # Network Build
-        print "Building the Network ..."
-        print(build_command)
+        logging.info(build_command)
         os.system(' '.join(build_command))
-        print "Finish Building the Network."
-
-        # Network Config
-        print "Configuring Network ..."
 
         netconfig_delay_command = ['whiteblock', 'netconfig', 'set', '--delay', str(network_latency)]
-        print(netconfig_delay_command)
+        logging.info(netconfig_delay_command)
         os.system(' '.join(netconfig_delay_command))
 
         netconfig_loss_command = ['whiteblock', 'netconfig', 'set', '--loss', str(packetloss)]
-        print(netconfig_loss_command)
+        logging.info(netconfig_loss_command)
         os.system(' '.join(netconfig_loss_command))
 
         netconfig_bandwidth_command = ['whiteblock', 'netconfig', 'set', '--bandwidth', bandwidth]
-        print(netconfig_bandwidth_command)
+        logging.info(netconfig_bandwidth_command)
         os.system(' '.join(netconfig_bandwidth_command))
-
-        print "Finish Configuring Network."
 
         # Deploy smart contract
         # os.system('-----')
@@ -85,12 +83,10 @@ class TestPlanWorker:
         print "Test Period: " + str(self.test_period) + " seconds. " + " Testing ..."
 
 
-    # Reset the network configuration
     def reset_test_case(self, case_params):
-        print "Reset Network Params ..."
         netconfig_clear_command = ['whiteblock', 'netconfig', 'clear']
+        logging.info(netconfig_clear_command)
         os.system(' '.join(netconfig_clear_command))
-        print "Reset Finished."
 
 
 
