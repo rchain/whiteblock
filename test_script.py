@@ -2,14 +2,11 @@
 
 import os
 import sys
-import logging
+
+from loguru import logger
 
 
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
-logger = logging.getLogger()
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+logger.add(sys.stdout, format="{time} {level} {message}", level='INFO')
 
 
 def main():
@@ -30,7 +27,7 @@ def main():
         '--yes',
     ]
 
-    logging.info(build_command)
+    logger.info(build_command)
     os.system(' '.join(build_command))
 
     # TODO Deploy smart contract

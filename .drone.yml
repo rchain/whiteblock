@@ -8,5 +8,6 @@ pipeline:
       - rm --recursive --force whiteblock
       - git clone https://github.com/rchain/whiteblock.git
       - cd whiteblock
+      - ~/.local/bin/pipenv sync
       - whiteblock build stop
-      - python3 test_script.py
+      - ~/.local/bin/pipenv run ./test_script.py
