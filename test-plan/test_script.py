@@ -5,8 +5,11 @@ import sys
 import logging
 
 
-logging.basicConfig(level=logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.INFO)
 logger = logging.getLogger()
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 
 def main():
