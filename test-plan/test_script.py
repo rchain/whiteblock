@@ -45,7 +45,7 @@ class TestPlanWorker:
         network_latency = case_params['network_latency']
         packetloss = case_params['packetloss']
 
-        whiteblock_build_command = [
+        build_command = [
             'whiteblock',
             'build',
             '--blockchain=rchain',
@@ -58,18 +58,25 @@ class TestPlanWorker:
 
         # Network Build
         print "Building the Network ..."
-        print(whiteblock_build_command)
-        os.system(' '.join(whiteblock_build_command))
+        print(build_command)
+        os.system(' '.join(build_command))
         print "Finish Building the Network."
 
         # Network Config
         print "Configuring Network ..."
-        print('whiteblock netconfig set --delay ' + str(network_latency))
-        os.system('whiteblock netconfig set --delay ' + str(network_latency))
-        print('whiteblock netconfig set --loss ' + str(packetloss))
-        os.system('whiteblock netconfig set --loss ' + str(packetloss))
-        print('whiteblock netconfig set --bandwidth ' + bandwidth)
-        os.system('whiteblock netconfig set --bandwidth ' + bandwidth)
+
+        netconfig_delay_command = ['whiteblock', 'netconfig', 'set', '--delay', str(network_latency)]
+        print(netconfig_delay_command)
+        os.system(' '.join(netconfig_delay_command))
+
+        netconfig_loss_command = ['whiteblock', 'netconfig', 'set', '--loss', str(packetloss)]
+        print(netconfig_loss_command)
+        os.system(' '.join(netconfig_loss_command))
+
+        netconfig_bandwidth_command = ['whiteblock', 'netconfig', 'set', '--bandwidth', bandwidth]
+        print(netconfig_bandwidth_command)
+        os.system(' '.join(netconfig_bandwidth_command))
+
         print "Finish Configuring Network."
 
         # Deploy smart contract
@@ -81,7 +88,8 @@ class TestPlanWorker:
     # Reset the network configuration
     def reset_test_case(self, case_params):
         print "Reset Network Params ..."
-        os.system('whiteblock netconfig clear')
+        netconfig_clear_command = ['whiteblock', 'netconfig', 'clear']
+        os.system(' '.join(netconfig_clear_command))
         print "Reset Finished."
 
 
