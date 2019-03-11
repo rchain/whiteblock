@@ -3,18 +3,21 @@
 # This can be modifid later for a generic test automation
 
 #!/usr/bin/env python
-import subprocess
 import sys
 import os
 import json
 import time
 import yaml
 import logging
+import subprocess
 from optparse import OptionParser
 
 
-logging.basicConfig(level=logging.INFO)
+handler = logging.StreamHandler(sys.stderr)
+handler.setLevel(logging.INFO)
 logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(handler)
 
 
 class TestPlanWorker:
