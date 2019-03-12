@@ -9,4 +9,4 @@ pipeline:
       - git clone https://github.com/rchain/whiteblock.git
       - cd whiteblock
       - whiteblock build stop
-      - python test_script.py
+      - python3 test_script.py
