@@ -6,9 +6,6 @@ import sys
 from loguru import logger
 
 
-logger.add(sys.stdout, format="{time} {level} {message}", level='INFO')
-
-
 def main():
     image = 'rchainops/rnode:whiteblock'
     static_nodes = 1
@@ -28,7 +25,7 @@ def main():
     ]
 
     logger.info(build_command)
-    os.system(' '.join(build_command))
+    # os.system(' '.join(build_command))
 
     # TODO Deploy smart contract
     # os.system('-----')
