@@ -1,13 +1,9 @@
 pipeline:
   test-script:
-    image: appleboy/drone-ssh
-    host: 34.73.93.57
-    secrets: [ ssh_username, ssh_key ]
-    command_timeout: 18000
-    script:
-      - rm --recursive --force whiteblock
-      - git clone https://github.com/rchain/whiteblock.git
-      - cd whiteblock
-      - ~/.local/bin/pipenv sync
-      - whiteblock build stop
-      - ~/.local/bin/pipenv run ./test_script.py
+    image: rchain/buildenv:latest
+    secrets:
+      - ssh_host
+      - ssh_username
+      - ssh_key_b64
+    commands:
+      - ./drone.sh
