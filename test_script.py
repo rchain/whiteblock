@@ -13,7 +13,7 @@ logger.setLevel(logging.INFO)
 
 
 def main():
-    image = 'rchain/rnode:latest'
+    image = 'rchainops/rnode:whiteblock'
     static_nodes = 1
     validator_nodes = 3
     total_num_nodes = validator_nodes + static_nodes
