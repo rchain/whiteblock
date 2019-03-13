@@ -6,13 +6,14 @@ set -o pipefail
 
 
 ssh-master () {
-    ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${SSH_USERNAME}@${SSH_HOST} "$@"
+    ssh -i ~/.ssh/id_rsa ${SSH_USERNAME}@${SSH_HOST} "$@"
 }
 
 
 main () {
     mkdir --parents ~/.ssh
     echo -n "$SSH_KEY_B64" | base64 --decode >~/.ssh/id_rsa
+    echo "$SSH_HOST ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBIl3+HjRHR4BzepYjIik/ORKKjFdU0Lv5QuYoVAKPsYBsfQUvhvnXzLlRLBXqokCfPWT+VPGMh114G6Vi0pjsR8=" >~/.ssh/known_hosts
     chmod --recursive go-rwx ~/.ssh
 
     ssh-master rm --recursive --force whiteblock
