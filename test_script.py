@@ -100,6 +100,7 @@ class Node:
     def start(self):
         self.logging_thread.start()
         self.proposing_thread.start()
+        return self
 
     def has_finished_proposing(self):
         return self.finished_proposing_event.is_set()
@@ -109,14 +110,6 @@ class Node:
 
     def join_logging_thread(self):
         self.logging_thread.join()
-
-
-def start_nodes(nodes):
-    result = []
-    for n in nodes:
-        n.start()
-        result.append(n)
-    return result
 
 
 def without_finished_nodes(running_nodes):
@@ -155,17 +148,12 @@ def main():
     terminate_logging_event = threading.Event()
     test_failed_event = threading.Event()
 
-    nodes = [
-        Node('validatorA', 1, log_lines_queue, terminate_logging_event, test_failed_event),
-        Node('validatorB', 2, log_lines_queue, terminate_logging_event, test_failed_event),
-        Node('validatorC', 3, log_lines_queue, terminate_logging_event, test_failed_event),
-        Node('validatorD', 4, log_lines_queue, terminate_logging_event, test_failed_event),
-        Node('validatorE', 5, log_lines_queue, terminate_logging_event, test_failed_event),
-    ]
+    nodes = [Node('validator'+char, i+1, log_lines_queue, terminate_logging_event, test_failed_event)
+            for i, char in enumerate('ABCDE')]
 
-    running_nodes = start_nodes(nodes)
+    running_nodes = [n.start() for n in nodes]
     while True:
-        if len(running_nodes) == 0:
+        if not running_nodes:
             break
         try:
             log_line = log_lines_queue.get(block=True, timeout=1)
