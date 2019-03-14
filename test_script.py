@@ -149,7 +149,7 @@ def main():
         '-o "command=/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode"',
     ]
     logger.info('COMMAND {}'.format(build_command))
-    assert os.system(' '.join(build_command)) == 0
+    # assert os.system(' '.join(build_command)) == 0
 
     log_lines_queue = queue.Queue(maxsize=1024)
     terminate_logging_event = threading.Event()
