@@ -19,7 +19,7 @@ class LoggingThread(threading.Thread):
         self.terminate_thread_event = terminate_thread_event
 
     def run(self):
-        command = ['whiteblock', 'get', 'log', '--tail=-1', str(self.whiteblock_node_id)]
+        command = ['whiteblock', 'ssh', str(self.whiteblock_node_id), '--', 'tail', '--follow', '/output.log']
         logger.info('COMMAND {}'.format(command))
         with subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as p:
             for line in p.stdout:
