@@ -61,7 +61,7 @@ class ProposingThread(threading.Thread):
             '--phlo-limit=1000000',
             '--phlo-price=1',
             '--nonce=0',
-            '/opt/docker/examples/dupe.rho',
+            '/rchain/rholang/examples/dupe.rho',
         ]
         self.shell_out(deploy_command)
 
