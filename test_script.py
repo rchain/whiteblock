@@ -134,14 +134,26 @@ def without_finished_nodes(running_nodes):
 
 
 def main():
+    log_lines_queue = queue.Queue(maxsize=1024)
+    terminate_logging_event = threading.Event()
+    test_failed_event = threading.Event()
+
+    nodes = [
+        Node('validatorA', 0, log_lines_queue, terminate_logging_event, test_failed_event),
+        Node('validatorB', 1, log_lines_queue, terminate_logging_event, test_failed_event),
+        Node('validatorC', 2, log_lines_queue, terminate_logging_event, test_failed_event),
+        Node('validatorD', 3, log_lines_queue, terminate_logging_event, test_failed_event),
+        Node('validatorE', 4, log_lines_queue, terminate_logging_event, test_failed_event),
+    ]
+
     image = 'rchainops/rnode:whiteblock'
-    validator_nodes = 5
+    validator_nodes = len(nodes)
     build_command = [
         'whiteblock',
         'build',
         '--blockchain=rchain',
         '--image={}'.format(image),
-        '--nodes={}'.format(validator_nodes + 1),
+        '--nodes={}'.format(validator_nodes),
         '--validators={}'.format(validator_nodes),
         '--cpus=0',
         '--memory=0',
@@ -149,19 +161,7 @@ def main():
         '-o "command=/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode"',
     ]
     logger.info('COMMAND {}'.format(build_command))
-    # assert os.system(' '.join(build_command)) == 0
-
-    log_lines_queue = queue.Queue(maxsize=1024)
-    terminate_logging_event = threading.Event()
-    test_failed_event = threading.Event()
-
-    nodes = [
-        Node('validatorA', 1, log_lines_queue, terminate_logging_event, test_failed_event),
-        Node('validatorB', 2, log_lines_queue, terminate_logging_event, test_failed_event),
-        Node('validatorC', 3, log_lines_queue, terminate_logging_event, test_failed_event),
-        Node('validatorD', 4, log_lines_queue, terminate_logging_event, test_failed_event),
-        Node('validatorE', 5, log_lines_queue, terminate_logging_event, test_failed_event),
-    ]
+    assert os.system(' '.join(build_command)) == 0
 
     running_nodes = start_nodes(nodes)
     while True:
