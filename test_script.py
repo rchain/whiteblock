@@ -55,7 +55,7 @@ class ProposingThread(threading.Thread):
             'ssh',
             str(self.whiteblock_node_id),
             '--',
-            '/opt/docker/bin/rnode',
+            '/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode',
             'deploy',
             '--from=0x1',
             '--phlo-limit=1000000',
@@ -71,7 +71,7 @@ class ProposingThread(threading.Thread):
             'ssh',
             str(self.whiteblock_node_id),
             '--',
-            '/opt/docker/bin/rnode',
+            '/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode',
             'propose',
         ]
         self.shell_out(propose_command)
