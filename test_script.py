@@ -210,7 +210,29 @@ async def background_logging(log_lines_queue):
     )
 
 
+def whiteblock_build():
+    image = 'rchainops/rnode:whiteblock'
+    validator_nodes = 5
+    total_nodes = validator_nodes + 1
+    build_command = [
+        'whiteblock',
+        'build',
+        '--blockchain=rchain',
+        '--image={}'.format(image),
+        '--nodes={}'.format(total_nodes),
+        '--validators={}'.format(validator_nodes),
+        '--cpus=0',
+        '--memory=0',
+        '--yes',
+        '-o "command=/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode"',
+    ]
+    logger.info('COMMAND {}'.format(build_command))
+    assert os.system(' '.join(build_command)) == 0
+
+
 async def async_main():
+    whiteblock_build()
+
     log_lines_queue = asyncio.Queue(maxsize=1024)
     task = asyncio.get_event_loop().create_task(background_logging(log_lines_queue))
     while True:
