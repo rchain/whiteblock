@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import queue
+import asyncio
 import threading
 import subprocess
 
@@ -183,5 +184,41 @@ def main():
     return test_failed_event.is_set()
 
 
+async def gen_node_log_lines(whiteblock_node_id):
+    args = ['ssh', str(whiteblock_node_id), '--', 'tail', '--follow', '/output.log']
+    proc = await asyncio.create_subprocess_exec('whiteblock', *args, stdout=asyncio.subprocess.PIPE)
+    while True:
+        data = await proc.stdout.readline()
+        if len(data) == 0:
+            break
+        line = data.decode('ascii').rstrip()
+        yield line
+
+
+async def serialize_node_log_lines(log_lines_queue, whiteblock_node_id):
+    async for line in gen_node_log_lines(whiteblock_node_id):
+        await log_lines_queue.put(line)
+
+
+async def background_logging(log_lines_queue):
+    await asyncio.gather(
+        serialize_node_log_lines(log_lines_queue, 0),
+        serialize_node_log_lines(log_lines_queue, 1),
+        serialize_node_log_lines(log_lines_queue, 2),
+        serialize_node_log_lines(log_lines_queue, 3),
+        serialize_node_log_lines(log_lines_queue, 4),
+    )
+
+
+async def async_main():
+    log_lines_queue = asyncio.Queue(maxsize=1024)
+    task = asyncio.get_event_loop().create_task(background_logging(log_lines_queue))
+    while True:
+        line = await log_lines_queue.get()
+        print(line, flush=True)
+    return 0
+
+
 if __name__ == '__main__':
-    sys.exit(main())
+    loop = asyncio.get_event_loop()
+    sys.exit(loop.run_until_complete(async_main()))
