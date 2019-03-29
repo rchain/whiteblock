@@ -15,11 +15,12 @@ from loguru import logger
 LogEntry = collections.namedtuple('LogEntry', ['node', 'line'])
 
 
-NODE_STARTED_LOG = 'coop.rchain.node.NodeRuntime - Listening for traffic on rnode'
 APPROVED_BLOCK_RECEIVED_LOG = 'Making a transition to ApprovedBlockRecievedHandler state.'
 
 
 async def gen_node_log_lines(whiteblock_node_id):
+    """Yield node logs lines by line
+    """
     args = ['ssh', str(whiteblock_node_id), '--', 'tail', '--lines=+1', '--follow', '/output.log']
     proc = await asyncio.create_subprocess_exec('whiteblock', *args, stdout=asyncio.subprocess.PIPE)
     while True:
@@ -30,18 +31,20 @@ async def gen_node_log_lines(whiteblock_node_id):
         yield LogEntry(whiteblock_node_id, line)
 
 
-async def serialize_node_log_lines(log_lines_queue, whiteblock_node_id):
+async def serialize_node_log_lines(logs_queue, whiteblock_node_id):
+    """Put generator items on an async queue
+    """
     async for log_entry in gen_node_log_lines(whiteblock_node_id):
-        await log_lines_queue.put(log_entry)
+        await logs_queue.put(log_entry)
 
 
-async def background_logs_queueing(log_lines_queue):
+async def background_logs_queueing(logs_queue):
     await asyncio.gather(
-        serialize_node_log_lines(log_lines_queue, 0),
-        serialize_node_log_lines(log_lines_queue, 1),
-        serialize_node_log_lines(log_lines_queue, 2),
-        serialize_node_log_lines(log_lines_queue, 3),
-        serialize_node_log_lines(log_lines_queue, 4),
+        serialize_node_log_lines(logs_queue, 0),
+        serialize_node_log_lines(logs_queue, 1),
+        serialize_node_log_lines(logs_queue, 2),
+        serialize_node_log_lines(logs_queue, 3),
+        serialize_node_log_lines(logs_queue, 4),
     )
 
 
@@ -62,7 +65,7 @@ def whiteblock_build():
         '-o "command=/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode"',
     ]
     logger.info('COMMAND {}'.format(build_command))
-    # assert os.system(' '.join(build_command)) == 0
+    assert os.system(' '.join(build_command)) == 0
 
 
 async def all_nodes_ready(logs_gen):
@@ -83,12 +86,14 @@ async def gen_serialized_logs(logs_queue):
 
 
 async def shell_out(command, args):
+    print(command, args, flush=True)
     proc = await asyncio.create_subprocess_exec('whiteblock', *args, stdout=asyncio.subprocess.PIPE)
     while True:
         data = await proc.stdout.readline()
         if len(data) == 0:
             break
         line = data.decode('ascii').rstrip()
+        print('out: ', line, flush=True)
         yield line
 
 
@@ -105,10 +110,11 @@ async def deploy(whiteblock_node_id):
         '--nonce=0',
         '/rchain/rholang/examples/dupe.rho',
     ]
-    await shell_out('whiteblock', args)
+    async for line in shell_out('whiteblock', args):
+        yield line
 
 
-async def propose(whiteblock_node_id):
+async def propose(whiteblock_node_id, logs_queue):
     args = [
         'ssh',
         str(whiteblock_node_id),
@@ -116,9 +122,28 @@ async def propose(whiteblock_node_id):
         '/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode',
         'propose',
     ]
-    await shell_out('whiteblock', args)
-    # XXX print output
+    async for line in shell_out('whiteblock', args):
+        yield line
 
+
+async def propose_loop(whiteblock_node_id, logs_queue):
+    for _ in range(200):
+        async for line in deploy(whiteblock_node_id):
+            log_entry = LogEntry(whiteblock_node_id, line)
+            await logs_queue.put(log_entry)
+        async for line in propose(whiteblock_node_id):
+            log_entry = LogEntry(whiteblock_node_id, line)
+            await logs_queue.put(log_entry)
+
+
+async def background_proposing(logs_queue):
+    await asyncio.gather(
+        propose_loop(0, logs_queue),
+        propose_loop(1, logs_queue),
+        propose_loop(2, logs_queue),
+        propose_loop(3, logs_queue),
+        propose_loop(4, logs_queue),
+    )
 
 
 async def async_main():
@@ -130,10 +155,11 @@ async def async_main():
     logs_gen = gen_serialized_logs(logs_queue)
     logs_unstarted_nodes_gen = all_nodes_ready(logs_gen)
 
+    proposing_task = None
     async for (log_entry, unstarted_nodes) in logs_unstarted_nodes_gen:
-        print(log_entry.node, log_entry.line, flush=True)
-        if len(unstarted_nodes) == 0:
-            # start proposing...
+        print(log_entry.node, log_entry.line, unstarted_nodes, flush=True)
+        if len(unstarted_nodes) == 0 and proposing_task is None:
+            proposing_task = asyncio.get_event_loop().create_task(background_proposing(logs_queue))
 
     return 0
 
