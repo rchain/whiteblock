@@ -19,6 +19,15 @@ from typing import (
 from loguru import logger
 
 
+class NonZeroExitCodeError(Exception):
+    def __init__(self, command: List[str], exit_code: int, stdout: str, stderr: str) -> None:
+        super().__init__()
+        self.command = command
+        self.exit_code = exit_code
+        self.stdout = stdout
+        self.stderr = stderr
+
+
 ElementType = TypeVar('ElementType')
 LogEntry = collections.namedtuple('LogEntry', ['node', 'line'])
 
@@ -100,7 +109,7 @@ async def logs_printing_task(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
         logger.info('{} {}'.format(NODE_NAME_FROM_ID[log_entry.node], log_entry.line))
 
 
-async def whiteblock_build(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
+async def whiteblock_build() -> None:
     image = 'rchainops/rnode:whiteblock'
     validator_nodes = 5
     total_nodes = validator_nodes + 1
@@ -115,25 +124,19 @@ async def whiteblock_build(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
         '--yes',
         '-o "command=/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode"',
     ]
-    async for line in shell_out('whiteblock', build_args, logs_queue):
-        log_entry = LogEntry(node=TEST_DRIVER_NODE, line=line)
-        await logs_queue.put(log_entry)
+    await shell_out('whiteblock', build_args)
 
 
-async def shell_out(command: str, args: List[str], logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[str, None]:
-    log_entry = LogEntry(node=TEST_DRIVER_NODE, line='COMMAND {} {}'.format(command, args))
-    await logs_queue.put(log_entry)
-    proc = await asyncio.create_subprocess_exec(command, *args, stdout=asyncio.subprocess.PIPE)
-    assert proc.stdout is not None
-    while True:
-        data = await proc.stdout.readline()
-        if len(data) == 0:
-            break
-        line = data.decode('ascii').rstrip()
-        yield line
+async def shell_out(command: str, args: List[str]) -> Tuple[str, str]:
+    logger.info('COMMAND {} {}'.format(command, args))
+    proc = await asyncio.create_subprocess_exec(command, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    (stdout_data, stderr_data) = await proc.communicate()
+    if proc.returncode != 0:
+        raise NonZeroExitCodeError([command] + args, proc.returncode, stdout_data.decode('ascii'), stderr_data.decode('ascii'))
+    return (stdout_data.decode('ascii'), stderr_data.decode('ascii'))
 
 
-async def deploy(whiteblock_node_id: int, logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[str, None]:
+async def deploy(whiteblock_node_id: int) -> Tuple[str, str]:
     args = [
         'ssh',
         str(whiteblock_node_id),
@@ -146,11 +149,10 @@ async def deploy(whiteblock_node_id: int, logs_queue: 'asyncio.Queue[LogEntry]')
         '--nonce=0',
         '/rchain/rholang/examples/dupe.rho',
     ]
-    async for line in shell_out('whiteblock', args, logs_queue):
-        yield line
+    return await shell_out('whiteblock', args)
 
 
-async def propose(whiteblock_node_id: int, logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[str, None]:
+async def propose(whiteblock_node_id: int) -> Tuple[str, str]:
     args = [
         'ssh',
         str(whiteblock_node_id),
@@ -158,37 +160,39 @@ async def propose(whiteblock_node_id: int, logs_queue: 'asyncio.Queue[LogEntry]'
         '/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode',
         'propose',
     ]
-    async for line in shell_out('whiteblock', args, logs_queue):
-        yield line
+    return await shell_out('whiteblock', args)
 
 
-async def deploy_propose_round(whiteblock_node_id: int, logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[LogEntry, None]:
+async def deploy_propose_from_node(whiteblock_node_id: int) -> None:
     for _ in range(200):
-        async for line in deploy(whiteblock_node_id, logs_queue):
-            log_entry = LogEntry(whiteblock_node_id, line)
-            yield log_entry
-        async for line in propose(whiteblock_node_id, logs_queue):
-            log_entry = LogEntry(whiteblock_node_id, line)
-            yield log_entry
+        (stdout_data, stderr_data) = await deploy(whiteblock_node_id)
+        for line in stdout_data.splitlines():
+            logger.info('STDOUT {}'.format(line))
+        for line in stderr_data.splitlines():
+            logger.info('STDERR {}'.format(line))
+        (stdout_data, stderr_data) = await propose(whiteblock_node_id)
+        for line in stdout_data.splitlines():
+            logger.info('STDOUT {}'.format(line))
+        for line in stderr_data.splitlines():
+            logger.info('STDERR {}'.format(line))
 
 
-async def deploy_propose(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
-    propose_logs_generators = [deploy_propose_round(node_id, logs_queue) for node_id in get_nodes_ids()]
-    logs_generator = race_generators(propose_logs_generators)
-    await enqueue_generator_elements(logs_generator, logs_queue)
+async def deploy_propose() -> None:
+    coroutines = [deploy_propose_from_node(node_id) for node_id in get_nodes_ids()]
+    await asyncio.gather(*coroutines)
 
 
 async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
+    await whiteblock_build()
+
     logs_queue: asyncio.Queue[LogEntry] = asyncio.Queue(maxsize=1024)
     background_logs_printing_task = event_loop.create_task(logs_printing_task(logs_queue))
-
-    await whiteblock_build(logs_queue)
 
     all_nodes_ready_event = asyncio.Event()
     background_logs_enqueuing_task = event_loop.create_task(logs_enqueuing_task(logs_queue, all_nodes_ready_event))
     await all_nodes_ready_event.wait()
 
-    await deploy_propose(logs_queue)
+    await deploy_propose()
 
     background_logs_printing_task.cancel()
     await background_logs_printing_task
