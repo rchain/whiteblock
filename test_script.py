@@ -129,24 +129,33 @@ async def propose(whiteblock_node_id, logs_queue):
         yield line
 
 
-async def propose_loop(whiteblock_node_id, logs_queue):
+async def propose_loop(whiteblock_node_id):
     for _ in range(200):
         async for line in deploy(whiteblock_node_id):
             log_entry = LogEntry(whiteblock_node_id, line)
-            await logs_queue.put(log_entry)
+            yield log_entry
         async for line in propose(whiteblock_node_id):
             log_entry = LogEntry(whiteblock_node_id, line)
-            await logs_queue.put(log_entry)
+            yield log_entry
+
+
+async def gen_propose_logs():
+    streams = [
+        propose_loop(0),
+        propose_loop(1),
+        propose_loop(2),
+        propose_loop(3),
+        propose_loop(4),
+    ]
+    merged = aiostream.stream.merge(*streams)
+    async with merged.stream() as streamer:
+        async for log_entry in streamer:
+            yield log_entry
 
 
 async def background_proposing(logs_queue):
-    await asyncio.gather(
-        propose_loop(0, logs_queue),
-        propose_loop(1, logs_queue),
-        propose_loop(2, logs_queue),
-        propose_loop(3, logs_queue),
-        propose_loop(4, logs_queue),
-    )
+    async for log_entry in gen_propose_logs():
+        await logs_queue.put(log_entry)
 
 
 async def async_main():
