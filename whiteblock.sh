@@ -8,7 +8,7 @@ set -o pipefail
 main () {
     ~/.local/bin/pipenv sync
     # whiteblock build stop || true
-    ~/.local/bin/pipenv run env LOGURU_FORMAT="{time:YYYY-MM-DD HH:mm:ss} {level} {thread.name} {message}" ./test_script.py
+    ~/.local/bin/pipenv run env LOGURU_FORMAT="{message}" ./test_script.py
 }
 
 

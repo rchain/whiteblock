@@ -26,13 +26,21 @@ LogEntry = collections.namedtuple('LogEntry', ['node', 'line'])
 APPROVED_BLOCK_RECEIVED_LOG = 'Making a transition to ApprovedBlockRecievedHandler state.'
 
 
+TEST_DRIVER_NODE = -1
+
+
 NODE_NAME_FROM_ID = {
+    -1: 'testDriver',
     0: 'bootstrap',
     1: 'validatorA',
     2: 'validatorB',
     3: 'validatorC',
     4: 'validatorD',
 }
+
+
+def get_nodes_ids() -> List[int]:
+    return [node_id for node_id in NODE_NAME_FROM_ID.keys() if node_id >= 0]
 
 
 async def gen_node_log_lines(whiteblock_node_id: int) -> AsyncGenerator[LogEntry, None]:
@@ -61,18 +69,42 @@ async def enqueue_generator_elements(gen: AsyncGenerator[ElementType, None], que
         await queue.put(elem)
 
 
-async def background_logs_queueing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
-    node_logs_generators = [gen_node_log_lines(node_id) for node_id in NODE_NAME_FROM_ID.keys()]
+async def detect_all_nodes_up(logs_gen: AsyncGenerator[LogEntry, None], all_nodes_ready_event: asyncio.Event) -> AsyncGenerator[LogEntry, None]:
+    unstarted_nodes = set(get_nodes_ids())
+    async for log_entry in logs_gen:
+        if APPROVED_BLOCK_RECEIVED_LOG in log_entry.line:
+            try:
+                unstarted_nodes.remove(log_entry.node)
+                if len(unstarted_nodes) == 0:
+                    all_nodes_ready_event.set()
+            except KeyError:
+                pass
+        yield log_entry
+
+
+async def logs_enqueuing_task(logs_queue: 'asyncio.Queue[LogEntry]', all_nodes_ready_event: asyncio.Event) -> None:
+    node_logs_generators = [gen_node_log_lines(node_id) for node_id in get_nodes_ids()]
     logs_generator = race_generators(node_logs_generators)
-    enqueue_generator_elements(logs_generator, logs_queue)
+    logs_generator = detect_all_nodes_up(logs_generator, all_nodes_ready_event)
+    await enqueue_generator_elements(logs_generator, logs_queue)
 
 
-def whiteblock_build() -> None:
+async def gen_serialized_logs(logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[LogEntry, None]:
+    while True:
+        log_entry = await logs_queue.get()
+        yield log_entry
+
+
+async def logs_printing_task(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
+    async for log_entry in gen_serialized_logs(logs_queue):
+        logger.info('{} {}'.format(NODE_NAME_FROM_ID[log_entry.node], log_entry.line))
+
+
+async def whiteblock_build(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
     image = 'rchainops/rnode:whiteblock'
     validator_nodes = 5
     total_nodes = validator_nodes + 1
-    build_command = [
-        'whiteblock',
+    build_args = [
         'build',
         '--blockchain=rchain',
         '--image={}'.format(image),
@@ -83,30 +115,15 @@ def whiteblock_build() -> None:
         '--yes',
         '-o "command=/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode"',
     ]
-    logger.info('COMMAND {}'.format(build_command))
-    assert os.system(' '.join(build_command)) == 0
+    async for line in shell_out('whiteblock', build_args, logs_queue):
+        log_entry = LogEntry(node=TEST_DRIVER_NODE, line=line)
+        await logs_queue.put(log_entry)
 
 
-async def all_nodes_ready(logs_gen: AsyncGenerator[LogEntry, None]) -> AsyncGenerator[Tuple[LogEntry, Set[int]], None]:
-    unstarted_nodes = set(NODE_NAME_FROM_ID.keys())
-    async for log_entry in logs_gen:
-        if APPROVED_BLOCK_RECEIVED_LOG in log_entry.line:
-            try:
-                unstarted_nodes.remove(log_entry.node)
-            except KeyError:
-                pass
-        yield (log_entry, unstarted_nodes)
-
-
-async def gen_serialized_logs(logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[LogEntry, None]:
-    while True:
-        log_entry = await logs_queue.get()
-        yield log_entry
-
-
-async def shell_out(command: str, args: List[str]) -> AsyncGenerator[str, None]:
-    logger.info('COMMAND {} {}'.format(command, args))
-    proc = await asyncio.create_subprocess_exec('whiteblock', *args, stdout=asyncio.subprocess.PIPE)
+async def shell_out(command: str, args: List[str], logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[str, None]:
+    log_entry = LogEntry(node=TEST_DRIVER_NODE, line='COMMAND {} {}'.format(command, args))
+    await logs_queue.put(log_entry)
+    proc = await asyncio.create_subprocess_exec(command, *args, stdout=asyncio.subprocess.PIPE)
     assert proc.stdout is not None
     while True:
         data = await proc.stdout.readline()
@@ -116,7 +133,7 @@ async def shell_out(command: str, args: List[str]) -> AsyncGenerator[str, None]:
         yield line
 
 
-async def deploy(whiteblock_node_id: int) -> AsyncGenerator[str, None]:
+async def deploy(whiteblock_node_id: int, logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[str, None]:
     args = [
         'ssh',
         str(whiteblock_node_id),
@@ -129,11 +146,11 @@ async def deploy(whiteblock_node_id: int) -> AsyncGenerator[str, None]:
         '--nonce=0',
         '/rchain/rholang/examples/dupe.rho',
     ]
-    async for line in shell_out('whiteblock', args):
+    async for line in shell_out('whiteblock', args, logs_queue):
         yield line
 
 
-async def propose(whiteblock_node_id: int) -> AsyncGenerator[str, None]:
+async def propose(whiteblock_node_id: int, logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[str, None]:
     args = [
         'ssh',
         str(whiteblock_node_id),
@@ -141,44 +158,47 @@ async def propose(whiteblock_node_id: int) -> AsyncGenerator[str, None]:
         '/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode',
         'propose',
     ]
-    async for line in shell_out('whiteblock', args):
+    async for line in shell_out('whiteblock', args, logs_queue):
         yield line
 
 
-async def propose_loop(whiteblock_node_id: int) -> AsyncGenerator[LogEntry, None]:
+async def deploy_propose_round(whiteblock_node_id: int, logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[LogEntry, None]:
     for _ in range(200):
-        async for line in deploy(whiteblock_node_id):
+        async for line in deploy(whiteblock_node_id, logs_queue):
             log_entry = LogEntry(whiteblock_node_id, line)
             yield log_entry
-        async for line in propose(whiteblock_node_id):
+        async for line in propose(whiteblock_node_id, logs_queue):
             log_entry = LogEntry(whiteblock_node_id, line)
             yield log_entry
 
 
-async def background_proposing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
-    propose_logs_generators = [propose_loop(node_id) for node_id in NODE_NAME_FROM_ID.keys()]
+async def deploy_propose(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
+    propose_logs_generators = [deploy_propose_round(node_id, logs_queue) for node_id in get_nodes_ids()]
     logs_generator = race_generators(propose_logs_generators)
-    enqueue_generator_elements(logs_generator, logs_queue)
+    await enqueue_generator_elements(logs_generator, logs_queue)
 
 
-async def async_main() -> int:
-    whiteblock_build()
-
+async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
     logs_queue: asyncio.Queue[LogEntry] = asyncio.Queue(maxsize=1024)
-    asyncio.get_event_loop().create_task(background_logs_queueing(logs_queue))
+    background_logs_printing_task = event_loop.create_task(logs_printing_task(logs_queue))
 
-    logs_gen = gen_serialized_logs(logs_queue)
-    logs_unstarted_nodes_gen = all_nodes_ready(logs_gen)
+    await whiteblock_build(logs_queue)
 
-    proposing_task = None
-    async for (log_entry, unstarted_nodes) in logs_unstarted_nodes_gen:
-        logger.info('{} {} {}'.format(NODE_NAME_FROM_ID[log_entry.node], log_entry.line, unstarted_nodes))
-        if len(unstarted_nodes) == 0 and proposing_task is None:
-            proposing_task = asyncio.get_event_loop().create_task(background_proposing(logs_queue))
+    all_nodes_ready_event = asyncio.Event()
+    background_logs_enqueuing_task = event_loop.create_task(logs_enqueuing_task(logs_queue, all_nodes_ready_event))
+    await all_nodes_ready_event.wait()
+
+    await deploy_propose(logs_queue)
+
+    background_logs_printing_task.cancel()
+    await background_logs_printing_task
+
+    background_logs_enqueuing_task.cancel()
+    await background_logs_enqueuing_task
 
     return 0
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    sys.exit(loop.run_until_complete(async_main()))
+    event_loop = asyncio.get_event_loop()
+    sys.exit(event_loop.run_until_complete(async_main(event_loop)))
