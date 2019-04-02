@@ -6,6 +6,7 @@ verify_ssl = true
 [dev-packages]
 python-language-server = "*"
 pylint = "*"
+mypy = "*"
 
 [packages]
 loguru = "*"
