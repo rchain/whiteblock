@@ -8,6 +8,7 @@ python-language-server = "*"
 
 [packages]
 loguru = "*"
+aiostream = "*"
 
 [requires]
 python_version = "3"
