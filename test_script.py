@@ -32,7 +32,6 @@ NODE_NAME_FROM_ID = {
     2: 'validatorB',
     3: 'validatorC',
     4: 'validatorD',
-    5: 'validatorE',
 }
 
 
@@ -63,13 +62,7 @@ async def enqueue_generator_elements(gen: AsyncGenerator[ElementType, None], que
 
 
 async def background_logs_queueing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
-    node_logs_generators = [
-        gen_node_log_lines(0),
-        gen_node_log_lines(1),
-        gen_node_log_lines(2),
-        gen_node_log_lines(3),
-        gen_node_log_lines(4),
-    ]
+    node_logs_generators = [gen_node_log_lines(node_id) for node_id in NODE_NAME_FROM_ID.keys()]
     logs_generator = race_generators(node_logs_generators)
     enqueue_generator_elements(logs_generator, logs_queue)
 
@@ -95,7 +88,7 @@ def whiteblock_build() -> None:
 
 
 async def all_nodes_ready(logs_gen: AsyncGenerator[LogEntry, None]) -> AsyncGenerator[Tuple[LogEntry, Set[int]], None]:
-    unstarted_nodes = set([0, 1, 2, 3, 4])
+    unstarted_nodes = set(NODE_NAME_FROM_ID.keys())
     async for log_entry in logs_gen:
         if APPROVED_BLOCK_RECEIVED_LOG in log_entry.line:
             try:
@@ -163,13 +156,7 @@ async def propose_loop(whiteblock_node_id: int) -> AsyncGenerator[LogEntry, None
 
 
 async def background_proposing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
-    propose_logs_generators = [
-        propose_loop(0),
-        propose_loop(1),
-        propose_loop(2),
-        propose_loop(3),
-        propose_loop(4),
-    ]
+    propose_logs_generators = [propose_loop(node_id) for node_id in NODE_NAME_FROM_ID.keys()]
     logs_generator = race_generators(propose_logs_generators)
     enqueue_generator_elements(logs_generator, logs_queue)
 
