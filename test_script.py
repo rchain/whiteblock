@@ -19,6 +19,7 @@ from typing import (
 from loguru import logger
 
 
+ElementType = TypeVar('ElementType')
 LogEntry = collections.namedtuple('LogEntry', ['node', 'line'])
 
 
@@ -30,6 +31,7 @@ async def gen_node_log_lines(whiteblock_node_id: int) -> AsyncGenerator[LogEntry
     """
     args = ['ssh', str(whiteblock_node_id), '--', 'tail', '--lines=+1', '--follow', '/output.log']
     proc = await asyncio.create_subprocess_exec('whiteblock', *args, stdout=asyncio.subprocess.PIPE)
+    assert proc.stdout is not None
     while True:
         data = await proc.stdout.readline()
         if len(data) == 0:
@@ -38,28 +40,28 @@ async def gen_node_log_lines(whiteblock_node_id: int) -> AsyncGenerator[LogEntry
         yield LogEntry(whiteblock_node_id, line)
 
 
-async def gen_log_lines() -> AsyncGenerator[LogEntry, None]:
-    streams = [
-        gen_node_log_lines(0),
-        gen_node_log_lines(1),
-        gen_node_log_lines(2),
-        gen_node_log_lines(3),
-        gen_node_log_lines(4),
-    ]
-    merged = aiostream.stream.merge(*streams)
+async def race_generators(generators: List[AsyncGenerator[ElementType, None]]) -> AsyncGenerator[ElementType, None]:
+    merged = aiostream.stream.merge(*generators)
     async with merged.stream() as streamer:
-        async for log_entry in streamer:
-            yield log_entry
+        async for element in streamer:
+            yield element
 
 
-ElementType = TypeVar('ElementType')
 async def enqueue_generator_elements(gen: AsyncGenerator[ElementType, None], queue: 'asyncio.Queue[ElementType]') -> None:
     async for elem in gen:
         await queue.put(elem)
 
 
 async def background_logs_queueing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
-    enqueue_generator_elements(gen_log_lines(), logs_queue)
+    node_logs_generators = [
+        gen_node_log_lines(0),
+        gen_node_log_lines(1),
+        gen_node_log_lines(2),
+        gen_node_log_lines(3),
+        gen_node_log_lines(4),
+    ]
+    logs_generator = race_generators(node_logs_generators)
+    enqueue_generator_elements(logs_generator, logs_queue)
 
 
 def whiteblock_build() -> None:
@@ -102,6 +104,7 @@ async def gen_serialized_logs(logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGen
 async def shell_out(command: str, args: List[str]) -> AsyncGenerator[str, None]:
     print(command, args, flush=True)
     proc = await asyncio.create_subprocess_exec('whiteblock', *args, stdout=asyncio.subprocess.PIPE)
+    assert proc.stdout is not None
     while True:
         data = await proc.stdout.readline()
         if len(data) == 0:
@@ -150,22 +153,16 @@ async def propose_loop(whiteblock_node_id: int) -> AsyncGenerator[LogEntry, None
             yield log_entry
 
 
-async def gen_propose_logs() -> AsyncGenerator[LogEntry, None]:
-    streams = [
+async def background_proposing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
+    propose_logs_generators = [
         propose_loop(0),
         propose_loop(1),
         propose_loop(2),
         propose_loop(3),
         propose_loop(4),
     ]
-    merged = aiostream.stream.merge(*streams)
-    async with merged.stream() as streamer:
-        async for log_entry in streamer:
-            yield log_entry
-
-
-async def background_proposing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
-    enqueue_generator_elements(gen_propose_logs(), logs_queue)
+    logs_generator = race_generators(propose_logs_generators)
+    enqueue_generator_elements(logs_generator, logs_queue)
 
 
 async def async_main() -> int:
