@@ -40,7 +40,7 @@ async def gen_log_lines():
         gen_node_log_lines(3),
         gen_node_log_lines(4),
     ]
-    merged = aiostream.stream.merge(streams)
+    merged = aiostream.stream.merge(*streams)
     async with merged.stream() as streamer:
         async for log_entry in streamer:
             yield log_entry
