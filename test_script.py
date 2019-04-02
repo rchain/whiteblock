@@ -3,12 +3,17 @@
 import os
 import sys
 import time
-import queue
 import asyncio
 import aiostream
 import threading
 import subprocess
 import collections
+from typing import (
+    Set,
+    List,
+    Tuple,
+    AsyncGenerator,
+)
 
 from loguru import logger
 
@@ -19,7 +24,7 @@ LogEntry = collections.namedtuple('LogEntry', ['node', 'line'])
 APPROVED_BLOCK_RECEIVED_LOG = 'Making a transition to ApprovedBlockRecievedHandler state.'
 
 
-async def gen_node_log_lines(whiteblock_node_id):
+async def gen_node_log_lines(whiteblock_node_id: int) -> AsyncGenerator[LogEntry, None]:
     """Yield node logs lines by line
     """
     args = ['ssh', str(whiteblock_node_id), '--', 'tail', '--lines=+1', '--follow', '/output.log']
@@ -32,7 +37,7 @@ async def gen_node_log_lines(whiteblock_node_id):
         yield LogEntry(whiteblock_node_id, line)
 
 
-async def gen_log_lines():
+async def gen_log_lines() -> AsyncGenerator[LogEntry, None]:
     streams = [
         gen_node_log_lines(0),
         gen_node_log_lines(1),
@@ -46,12 +51,12 @@ async def gen_log_lines():
             yield log_entry
 
 
-async def background_logs_queueing(logs_queue):
+async def background_logs_queueing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
     async for log_entry in gen_log_lines():
         await logs_queue.put(log_entry)
 
 
-def whiteblock_build():
+def whiteblock_build() -> None:
     image = 'rchainops/rnode:whiteblock'
     validator_nodes = 5
     total_nodes = validator_nodes + 1
@@ -71,7 +76,7 @@ def whiteblock_build():
     assert os.system(' '.join(build_command)) == 0
 
 
-async def all_nodes_ready(logs_gen):
+async def all_nodes_ready(logs_gen: AsyncGenerator[LogEntry, None]) -> AsyncGenerator[Tuple[LogEntry, Set[int]], None]:
     unstarted_nodes = set([0, 1, 2, 3, 4])
     async for log_entry in logs_gen:
         if APPROVED_BLOCK_RECEIVED_LOG in log_entry.line:
@@ -82,13 +87,13 @@ async def all_nodes_ready(logs_gen):
         yield (log_entry, unstarted_nodes)
 
 
-async def gen_serialized_logs(logs_queue):
+async def gen_serialized_logs(logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGenerator[LogEntry, None]:
     while True:
         log_entry = await logs_queue.get()
         yield log_entry
 
 
-async def shell_out(command, args):
+async def shell_out(command: str, args: List[str]) -> AsyncGenerator[str, None]:
     print(command, args, flush=True)
     proc = await asyncio.create_subprocess_exec('whiteblock', *args, stdout=asyncio.subprocess.PIPE)
     while True:
@@ -100,7 +105,7 @@ async def shell_out(command, args):
         yield line
 
 
-async def deploy(whiteblock_node_id):
+async def deploy(whiteblock_node_id: int) -> AsyncGenerator[str, None]:
     args = [
         'ssh',
         str(whiteblock_node_id),
@@ -117,7 +122,7 @@ async def deploy(whiteblock_node_id):
         yield line
 
 
-async def propose(whiteblock_node_id, logs_queue):
+async def propose(whiteblock_node_id: int) -> AsyncGenerator[str, None]:
     args = [
         'ssh',
         str(whiteblock_node_id),
@@ -129,7 +134,7 @@ async def propose(whiteblock_node_id, logs_queue):
         yield line
 
 
-async def propose_loop(whiteblock_node_id):
+async def propose_loop(whiteblock_node_id: int) -> AsyncGenerator[LogEntry, None]:
     for _ in range(200):
         async for line in deploy(whiteblock_node_id):
             log_entry = LogEntry(whiteblock_node_id, line)
@@ -139,7 +144,7 @@ async def propose_loop(whiteblock_node_id):
             yield log_entry
 
 
-async def gen_propose_logs():
+async def gen_propose_logs() -> AsyncGenerator[LogEntry, None]:
     streams = [
         propose_loop(0),
         propose_loop(1),
@@ -153,15 +158,15 @@ async def gen_propose_logs():
             yield log_entry
 
 
-async def background_proposing(logs_queue):
+async def background_proposing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
     async for log_entry in gen_propose_logs():
         await logs_queue.put(log_entry)
 
 
-async def async_main():
+async def async_main() -> int:
     whiteblock_build()
 
-    logs_queue = asyncio.Queue(maxsize=1024)
+    logs_queue: asyncio.Queue[LogEntry] = asyncio.Queue(maxsize=1024)
     asyncio.get_event_loop().create_task(background_logs_queueing(logs_queue))
 
     logs_gen = gen_serialized_logs(logs_queue)
