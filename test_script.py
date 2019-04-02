@@ -130,10 +130,12 @@ async def whiteblock_build() -> None:
 async def shell_out(command: str, args: List[str]) -> Tuple[str, str]:
     logger.info('COMMAND {} {}'.format(command, args))
     proc = await asyncio.create_subprocess_exec(command, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    (stdout_data, stderr_data) = await proc.communicate()
+    (stdout_bytes, stderr_bytes) = await proc.communicate()
+    stdout_str = stdout_bytes.decode('ascii')
+    stderr_str = stderr_bytes.decode('ascii')
     if proc.returncode != 0:
-        raise NonZeroExitCodeError([command] + args, proc.returncode, stdout_data.decode('ascii'), stderr_data.decode('ascii'))
-    return (stdout_data.decode('ascii'), stderr_data.decode('ascii'))
+        raise NonZeroExitCodeError([command] + args, proc.returncode, stdout_str, stderr_str)
+    return (stdout_str, stderr_str)
 
 
 async def deploy(whiteblock_node_id: int) -> Tuple[str, str]:
