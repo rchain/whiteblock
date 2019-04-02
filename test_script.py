@@ -5,6 +5,7 @@ import sys
 import time
 import queue
 import asyncio
+import aiostream
 import threading
 import subprocess
 import collections
@@ -31,21 +32,23 @@ async def gen_node_log_lines(whiteblock_node_id):
         yield LogEntry(whiteblock_node_id, line)
 
 
-async def serialize_node_log_lines(logs_queue, whiteblock_node_id):
-    """Put generator items on an async queue
-    """
-    async for log_entry in gen_node_log_lines(whiteblock_node_id):
-        await logs_queue.put(log_entry)
+async def gen_log_lines():
+    streams = [
+        gen_node_log_lines(0),
+        gen_node_log_lines(1),
+        gen_node_log_lines(2),
+        gen_node_log_lines(3),
+        gen_node_log_lines(4),
+    ]
+    merged = aiostream.stream.merge(streams)
+    async with merged.stream() as streamer:
+        async for log_entry in streamer:
+            yield log_entry
 
 
 async def background_logs_queueing(logs_queue):
-    await asyncio.gather(
-        serialize_node_log_lines(logs_queue, 0),
-        serialize_node_log_lines(logs_queue, 1),
-        serialize_node_log_lines(logs_queue, 2),
-        serialize_node_log_lines(logs_queue, 3),
-        serialize_node_log_lines(logs_queue, 4),
-    )
+    async for log_entry in gen_log_lines():
+        await logs_queue.put(log_entry)
 
 
 def whiteblock_build():
