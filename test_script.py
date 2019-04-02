@@ -12,6 +12,7 @@ from typing import (
     Set,
     List,
     Tuple,
+    TypeVar,
     AsyncGenerator,
 )
 
@@ -51,9 +52,14 @@ async def gen_log_lines() -> AsyncGenerator[LogEntry, None]:
             yield log_entry
 
 
+ElementType = TypeVar('ElementType')
+async def enqueue_generator_elements(gen: AsyncGenerator[ElementType, None], queue: 'asyncio.Queue[ElementType]') -> None:
+    async for elem in gen:
+        await queue.put(elem)
+
+
 async def background_logs_queueing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
-    async for log_entry in gen_log_lines():
-        await logs_queue.put(log_entry)
+    enqueue_generator_elements(gen_log_lines(), logs_queue)
 
 
 def whiteblock_build() -> None:
@@ -159,8 +165,7 @@ async def gen_propose_logs() -> AsyncGenerator[LogEntry, None]:
 
 
 async def background_proposing(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
-    async for log_entry in gen_propose_logs():
-        await logs_queue.put(log_entry)
+    enqueue_generator_elements(gen_propose_logs(), logs_queue)
 
 
 async def async_main() -> int:
