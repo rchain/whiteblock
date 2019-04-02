@@ -26,6 +26,16 @@ LogEntry = collections.namedtuple('LogEntry', ['node', 'line'])
 APPROVED_BLOCK_RECEIVED_LOG = 'Making a transition to ApprovedBlockRecievedHandler state.'
 
 
+NODE_NAME_FROM_ID = {
+    0: 'bootstrap',
+    1: 'validatorA',
+    2: 'validatorB',
+    3: 'validatorC',
+    4: 'validatorD',
+    5: 'validatorE',
+}
+
+
 async def gen_node_log_lines(whiteblock_node_id: int) -> AsyncGenerator[LogEntry, None]:
     """Yield node logs lines by line
     """
@@ -102,7 +112,7 @@ async def gen_serialized_logs(logs_queue: 'asyncio.Queue[LogEntry]') -> AsyncGen
 
 
 async def shell_out(command: str, args: List[str]) -> AsyncGenerator[str, None]:
-    print(command, args, flush=True)
+    logger.info('COMMAND {} {}'.format(command, args))
     proc = await asyncio.create_subprocess_exec('whiteblock', *args, stdout=asyncio.subprocess.PIPE)
     assert proc.stdout is not None
     while True:
@@ -110,7 +120,6 @@ async def shell_out(command: str, args: List[str]) -> AsyncGenerator[str, None]:
         if len(data) == 0:
             break
         line = data.decode('ascii').rstrip()
-        print('out: ', line, flush=True)
         yield line
 
 
@@ -176,7 +185,7 @@ async def async_main() -> int:
 
     proposing_task = None
     async for (log_entry, unstarted_nodes) in logs_unstarted_nodes_gen:
-        print(log_entry.node, log_entry.line, unstarted_nodes, flush=True)
+        logger.info('{} {} {}'.format(NODE_NAME_FROM_ID[log_entry.node], log_entry.line, unstarted_nodes))
         if len(unstarted_nodes) == 0 and proposing_task is None:
             proposing_task = asyncio.get_event_loop().create_task(background_proposing(logs_queue))
 
