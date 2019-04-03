@@ -27,6 +27,15 @@ class NonZeroExitCodeError(Exception):
         self.stdout = stdout
         self.stderr = stderr
 
+    def __repr__(self) -> str:
+        args = [
+            self.command,
+            self.exit_code,
+            self.stdout,
+            self.stderr,
+        ]
+        return '{}({})'.format(self.__class__.__name__, ', '.join(repr(a) for a in args))
+
 
 ElementType = TypeVar('ElementType')
 LogEntry = collections.namedtuple('LogEntry', ['node', 'line'])
@@ -184,9 +193,7 @@ async def deploy_propose() -> None:
     await asyncio.gather(*coroutines)
 
 
-async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
-    await whiteblock_build()
-
+async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
     logs_queue: asyncio.Queue[LogEntry] = asyncio.Queue(maxsize=1024)
     background_logs_printing_task = event_loop.create_task(logs_printing_task(logs_queue))
 
@@ -201,6 +208,16 @@ async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
 
     background_logs_enqueuing_task.cancel()
     await background_logs_enqueuing_task
+
+
+async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
+    await whiteblock_build()
+
+    try:
+        await test_body(event_loop)
+    except Exception as e:
+        logger.exception("Failure")
+        return 1
 
     return 0
 
