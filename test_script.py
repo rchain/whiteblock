@@ -1,20 +1,15 @@
 #!/usr/bin/env python
 
-import os
 import sys
-import time
 import asyncio
-import aiostream
-import threading
-import subprocess
 import collections
 from typing import (
-    Set,
     List,
     Tuple,
     TypeVar,
     AsyncGenerator,
 )
+import aiostream
 
 from loguru import logger
 
@@ -215,7 +210,7 @@ async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
 
     try:
         await test_body(event_loop)
-    except Exception as e:
+    except Exception:
         logger.exception("Failure")
         return 1
 
