@@ -126,6 +126,12 @@ async def whiteblock_build() -> None:
         '--cpus=0',
         '--memory=0',
         '--yes',
+        '-e0standalone=true',
+        '-e1standalone=false',
+        '-e2standalone=false',
+        '-e3standalone=false',
+        '-e4standalone=false',
+        '-e5standalone=false',
         '-o "command=/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode"',
     ]
     await shell_out('whiteblock', build_args)
