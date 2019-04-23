@@ -18,7 +18,7 @@ main () {
 
     mkdir --parents ~/.ssh
     echo -n "$SSH_KEY_B64" | base64 --decode >~/.ssh/id_rsa
-    echo "$SSH_HOST ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMN0Npb1Cume+dC5OsAIIdMr04S7N+7Db80CpJB0vKpnQzfCEPKluiAawod6hFcPM4bxQKAklgqJEM4xzYw83AQ=" >~/.ssh/known_hosts
+    echo "$SSH_HOST ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBC4SRwCKg2jSv81mQcTp+n/UziKRGaa28ShIQWcFFqGakqIT3oPayzZ3QTJY0pw0bqajQf04h844mZWpJuECtU4=" >~/.ssh/known_hosts
     chmod --recursive go-rwx ~/.ssh
 
     ssh-master rm --recursive --force whiteblock
