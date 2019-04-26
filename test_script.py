@@ -2,11 +2,14 @@
 
 import sys
 import asyncio
+import contextlib
 import collections
 from typing import (
     List,
+    Any,
     Tuple,
     TypeVar,
+    Awaitable,
     AsyncGenerator,
 )
 import aiostream
@@ -195,21 +198,24 @@ async def deploy_propose() -> None:
     await asyncio.gather(*coroutines)
 
 
+@contextlib.asynccontextmanager
+async def background_task(event_loop: asyncio.AbstractEventLoop, task_function: Awaitable[Any]) -> AsyncGenerator[None, None]:
+    task = event_loop.create_task(task_function)
+    try:
+        yield
+    finally:
+        task.cancel()
+        await task
+
+
 async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
     logs_queue: asyncio.Queue[LogEntry] = asyncio.Queue(maxsize=1024)
-    background_logs_printing_task = event_loop.create_task(logs_printing_task(logs_queue))
 
-    all_nodes_ready_event = asyncio.Event()
-    background_logs_enqueuing_task = event_loop.create_task(logs_enqueuing_task(logs_queue, all_nodes_ready_event))
-    await all_nodes_ready_event.wait()
-
-    await deploy_propose()
-
-    background_logs_printing_task.cancel()
-    await background_logs_printing_task
-
-    background_logs_enqueuing_task.cancel()
-    await background_logs_enqueuing_task
+    async with background_task(event_loop, logs_printing_task(logs_queue)):
+        all_nodes_ready_event = asyncio.Event()
+        async with background_task(event_loop, logs_enqueuing_task(logs_queue, all_nodes_ready_event)):
+            await all_nodes_ready_event.wait()
+            await deploy_propose()
 
 
 async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
