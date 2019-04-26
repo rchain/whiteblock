@@ -2,7 +2,6 @@
 
 import sys
 import asyncio
-import contextlib
 import collections
 from typing import (
     List,
@@ -12,7 +11,9 @@ from typing import (
     Awaitable,
     AsyncGenerator,
 )
+
 import aiostream
+import async_generator
 
 from loguru import logger
 
@@ -214,7 +215,7 @@ async def deploy_propose() -> None:
     await asyncio.gather(*coroutines)
 
 
-@contextlib.asynccontextmanager
+@async_generator.asynccontextmanager
 async def background_task(event_loop: asyncio.AbstractEventLoop, task_function: Awaitable[Any]) -> AsyncGenerator[None, None]:
     task = event_loop.create_task(task_function)
     try:
