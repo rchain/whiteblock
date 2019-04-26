@@ -119,26 +119,42 @@ async def logs_printing_task(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
 async def whiteblock_build() -> None:
     image = 'rchainops/rnode:whiteblock'
     validator_nodes = 5
-    total_nodes = validator_nodes + 1
     build_args = [
         'build',
         '--blockchain=rchain',
         '--image={}'.format(image),
-        '--nodes={}'.format(total_nodes),
+        '--nodes={}'.format(1),
         '--validators={}'.format(validator_nodes),
         '--cpus=0',
         '--memory=0',
         '--yes',
-        '-t"0;rchain.conf.mustache;~/whiteblock/config/bootstrap.conf"',
-        '-t"1;rchain.conf.mustache;~/whiteblock/config/validator.conf"',
-        '-t"2;rchain.conf.mustache;~/whiteblock/config/validator.conf"',
-        '-t"3;rchain.conf.mustache;~/whiteblock/config/validator.conf"',
-        '-t"4;rchain.conf.mustache;~/whiteblock/config/validator.conf"',
-        '-t"5;rchain.conf.mustache;~/whiteblock/config/validator.conf"',
-        '-t"6;rchain.conf.mustache;~/whiteblock/config/validator.conf"',
+        '-t"0;rchain.conf.mustache;/home/master/whiteblock/config/bootstrap.conf.mustache"',
         '-o "command=/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode"',
     ]
     await shell_out('whiteblock', build_args)
+
+
+async def whiteblock_build_append() -> None:
+    image = 'rchainops/rnode:whiteblock'
+    validator_nodes = 5
+    build_args = [
+        'build',
+        'append',
+        '--blockchain=rchain',
+        '--image={}'.format(image),
+        '--nodes={}'.format(validator_nodes),
+        '--cpus=0',
+        '--memory=0',
+        '--yes',
+        '-t"1;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
+        '-t"2;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
+        '-t"3;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
+        '-t"4;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
+        '-t"5;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
+        '-t"6;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
+    ]
+    await shell_out('whiteblock', build_args)
+
 
 
 async def shell_out(command: str, args: List[str]) -> Tuple[str, str]:
