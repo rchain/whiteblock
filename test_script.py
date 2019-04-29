@@ -129,7 +129,7 @@ async def whiteblock_build() -> None:
         '--memory=0',
         '--yes',
         '-t"0;rchain.conf.mustache;/home/master/whiteblock/config/bootstrap.conf.mustache"',
-        '-o "command=/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode"',
+        '-o command=/opt/docker/bin/rnode',
     ]
     await shell_out('whiteblock', build_args)
 
@@ -173,7 +173,7 @@ async def deploy(whiteblock_node_id: int) -> Tuple[str, str]:
         'ssh',
         str(whiteblock_node_id),
         '--',
-        '/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode',
+        '/opt/docker/bin/rnode',
         'deploy',
         '--from=0x1',
         '--phlo-limit=1000000',
@@ -189,7 +189,7 @@ async def propose(whiteblock_node_id: int) -> Tuple[str, str]:
         'ssh',
         str(whiteblock_node_id),
         '--',
-        '/rchain/node/target/rnode-0.8.3.git07d2167a/usr/share/rnode/bin/rnode',
+        '/opt/docker/bin/rnode',
         'propose',
     ]
     return await shell_out('whiteblock', args)
@@ -225,6 +225,8 @@ async def background_task(event_loop: asyncio.AbstractEventLoop, task_function: 
 
 
 async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
+    await whiteblock_build()
+
     logs_queue: asyncio.Queue[LogEntry] = asyncio.Queue(maxsize=1024)
 
     validator_nodes = [
@@ -239,16 +241,18 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
         bootstrap_node_ready_event = asyncio.Event()
         validator_nodes_ready_event = asyncio.Event()
         async with background_task(event_loop, logs_enqueuing_task(logs_queue, [NODE_ID_FROM_NAME['bootstrap']], bootstrap_node_ready_event)):
+            logger.info('Waiting for the bootstrap node readiness')
             await bootstrap_node_ready_event.wait()
             await whiteblock_build_append()
             async with background_task(event_loop, logs_enqueuing_task(logs_queue, validator_nodes, validator_nodes_ready_event)):
+                logger.info('Waiting for validators to be ready')
                 await validator_nodes_ready_event.wait()
+                logger.info('Starting propose loop')
                 await deploy_propose()
 
 
 async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
     try:
-        await whiteblock_build()
         await test_body(event_loop)
     except Exception:
         logger.exception("Failure")
