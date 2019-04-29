@@ -244,6 +244,7 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
         async with background_task(event_loop, logs_enqueuing_task(logs_queue, [NODE_ID_FROM_NAME['bootstrap']], bootstrap_node_ready_event)):
             logger.info('Waiting for the bootstrap node readiness')
             await bootstrap_node_ready_event.wait()
+            logger.info('Adding validator nodes')
             await whiteblock_build_append()
             async with background_task(event_loop, logs_enqueuing_task(logs_queue, validator_nodes, validator_nodes_ready_event)):
                 logger.info('Waiting for validators to be ready')
