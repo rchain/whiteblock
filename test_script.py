@@ -43,9 +43,6 @@ LogEntry = collections.namedtuple('LogEntry', ['node', 'line'])
 APPROVED_BLOCK_RECEIVED_LOG = 'Making a transition to ApprovedBlockRecievedHandler state.'
 
 
-TEST_DRIVER_NODE = -1
-
-
 NODE_NAME_FROM_ID = {
     -1: 'testDriver',
     0: 'bootstrap',
@@ -54,6 +51,8 @@ NODE_NAME_FROM_ID = {
     3: 'validatorC',
     4: 'validatorD',
 }
+
+NODE_ID_FROM_NAME = dict((v, k) for (k, v) in NODE_NAME_FROM_ID.items())
 
 
 def get_nodes_ids() -> List[int]:
@@ -99,8 +98,8 @@ async def detect_all_nodes_up(logs_gen: AsyncGenerator[LogEntry, None], all_node
         yield log_entry
 
 
-async def logs_enqueuing_task(logs_queue: 'asyncio.Queue[LogEntry]', all_nodes_ready_event: asyncio.Event) -> None:
-    node_logs_generators = [gen_node_log_lines(node_id) for node_id in get_nodes_ids()]
+async def logs_enqueuing_task(logs_queue: 'asyncio.Queue[LogEntry]', nodes: List[int], all_nodes_ready_event: asyncio.Event) -> None:
+    node_logs_generators = [gen_node_log_lines(node_id) for node_id in nodes]
     logs_generator = race_generators(node_logs_generators)
     logs_generator = detect_all_nodes_up(logs_generator, all_nodes_ready_event)
     await enqueue_generator_elements(logs_generator, logs_queue)
@@ -228,11 +227,22 @@ async def background_task(event_loop: asyncio.AbstractEventLoop, task_function: 
 async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
     logs_queue: asyncio.Queue[LogEntry] = asyncio.Queue(maxsize=1024)
 
+    validator_nodes = [
+        NODE_ID_FROM_NAME['validatorA'],
+        NODE_ID_FROM_NAME['validatorB'],
+        NODE_ID_FROM_NAME['validatorC'],
+        NODE_ID_FROM_NAME['validatorD'],
+    ]
+
     async with background_task(event_loop, logs_printing_task(logs_queue)):
-        all_nodes_ready_event = asyncio.Event()
-        async with background_task(event_loop, logs_enqueuing_task(logs_queue, all_nodes_ready_event)):
-            await all_nodes_ready_event.wait()
-            await deploy_propose()
+        bootstrap_node_ready_event = asyncio.Event()
+        validator_nodes_ready_event = asyncio.Event()
+        async with background_task(event_loop, logs_enqueuing_task(logs_queue, [NODE_ID_FROM_NAME['bootstrap']], bootstrap_node_ready_event)):
+            await bootstrap_node_ready_event.wait()
+            await whiteblock_build_append()
+            async with background_task(event_loop, logs_enqueuing_task(logs_queue, validator_nodes, validator_nodes_ready_event)):
+                await validator_nodes_ready_event.wait()
+                await deploy_propose()
 
 
 async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
