@@ -129,7 +129,8 @@ async def whiteblock_build() -> None:
         '--memory=0',
         '--yes',
         '-t"0;rchain.conf.mustache;/home/master/whiteblock/config/bootstrap.conf.mustache"',
-        '-o command=/opt/docker/bin/rnode',
+        '-o',
+        'command=/opt/docker/bin/rnode',
     ]
     await shell_out('whiteblock', build_args)
 
