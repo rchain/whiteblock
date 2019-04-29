@@ -234,6 +234,7 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
         NODE_ID_FROM_NAME['validatorD'],
     ]
 
+    logger.info('Starting test body')
     async with background_task(event_loop, logs_printing_task(logs_queue)):
         bootstrap_node_ready_event = asyncio.Event()
         validator_nodes_ready_event = asyncio.Event()
@@ -246,9 +247,8 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
 
 
 async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
-    await whiteblock_build()
-
     try:
+        await whiteblock_build()
         await test_body(event_loop)
     except Exception:
         logger.exception("Failure")
