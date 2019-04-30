@@ -142,12 +142,12 @@ async def whiteblock_build_append() -> None:
         '--nodes={}'.format(validator_nodes),
         '--cpus=0',
         '--memory=0',
-        '-t"1;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
-        '-t"2;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
-        '-t"3;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
-        '-t"4;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
-        '-t"5;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
-        '-t"6;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
+        '-t"1;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
+        '-t"2;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
+        '-t"3;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
+        '-t"4;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
+        '-t"5;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
+        '-t"6;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
     ]
     await shell_out('whiteblock', build_args)
 
