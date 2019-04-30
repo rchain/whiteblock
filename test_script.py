@@ -85,8 +85,8 @@ async def enqueue_generator_elements(gen: AsyncGenerator[ElementType, None], que
         await queue.put(elem)
 
 
-async def detect_all_nodes_up(logs_gen: AsyncGenerator[LogEntry, None], all_nodes_ready_event: asyncio.Event) -> AsyncGenerator[LogEntry, None]:
-    unstarted_nodes = set(get_nodes_ids())
+async def detect_all_nodes_up(logs_gen: AsyncGenerator[LogEntry, None], nodes: List[int], all_nodes_ready_event: asyncio.Event) -> AsyncGenerator[LogEntry, None]:
+    unstarted_nodes = set(nodes)
     async for log_entry in logs_gen:
         if APPROVED_BLOCK_RECEIVED_LOG in log_entry.line:
             try:
@@ -101,7 +101,7 @@ async def detect_all_nodes_up(logs_gen: AsyncGenerator[LogEntry, None], all_node
 async def logs_enqueuing_task(logs_queue: 'asyncio.Queue[LogEntry]', nodes: List[int], all_nodes_ready_event: asyncio.Event) -> None:
     node_logs_generators = [gen_node_log_lines(node_id) for node_id in nodes]
     logs_generator = race_generators(node_logs_generators)
-    logs_generator = detect_all_nodes_up(logs_generator, all_nodes_ready_event)
+    logs_generator = detect_all_nodes_up(logs_generator, nodes, all_nodes_ready_event)
     await enqueue_generator_elements(logs_generator, logs_queue)
 
 
@@ -229,7 +229,6 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
     await whiteblock_build()
 
     logs_queue: asyncio.Queue[LogEntry] = asyncio.Queue(maxsize=1024)
-
     validator_nodes = [
         NODE_ID_FROM_NAME['validatorA'],
         NODE_ID_FROM_NAME['validatorB'],
