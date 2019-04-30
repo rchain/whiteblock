@@ -215,7 +215,10 @@ async def background_task(event_loop: asyncio.AbstractEventLoop, task_function: 
     task = event_loop.create_task(task_function)
     try:
         yield
-    finally:
+    except:
+        task.cancel()
+        raise
+    else:
         task.cancel()
         await task
 
