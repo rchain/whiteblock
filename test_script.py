@@ -55,10 +55,6 @@ NODE_NAME_FROM_ID = {
 NODE_ID_FROM_NAME = dict((v, k) for (k, v) in NODE_NAME_FROM_ID.items())
 
 
-def get_nodes_ids() -> List[int]:
-    return [node_id for node_id in NODE_NAME_FROM_ID.keys() if node_id >= 0]
-
-
 async def gen_node_log_lines(whiteblock_node_id: int) -> AsyncGenerator[LogEntry, None]:
     """Yield node logs lines by line
     """
@@ -157,7 +153,6 @@ async def whiteblock_build_append() -> None:
     await shell_out('whiteblock', build_args)
 
 
-
 async def shell_out(command: str, args: List[str]) -> Tuple[str, str]:
     logger.info('COMMAND {} {}'.format(command, args))
     proc = await asyncio.create_subprocess_exec(command, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
@@ -210,8 +205,8 @@ async def deploy_propose_from_node(whiteblock_node_id: int) -> None:
             logger.info('STDERR {}'.format(line))
 
 
-async def deploy_propose() -> None:
-    coroutines = [deploy_propose_from_node(node_id) for node_id in get_nodes_ids()]
+async def deploy_propose(nodes: List[int]) -> None:
+    coroutines = [deploy_propose_from_node(node_id) for node_id in nodes]
     await asyncio.gather(*coroutines)
 
 
@@ -249,7 +244,7 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
                 logger.info('Waiting for validators to be ready')
                 await validator_nodes_ready_event.wait()
                 logger.info('Starting propose loop')
-                await deploy_propose()
+                await deploy_propose(validator_nodes)
 
 
 async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
