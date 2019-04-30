@@ -146,8 +146,6 @@ async def whiteblock_build_append() -> None:
         '-t"2;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
         '-t"3;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
         '-t"4;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
-        '-t"5;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
-        '-t"6;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
     ]
     await shell_out('whiteblock', build_args)
 
