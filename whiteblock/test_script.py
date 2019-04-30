@@ -142,7 +142,6 @@ async def whiteblock_build_append() -> None:
         '--nodes={}'.format(validator_nodes),
         '--cpus=0',
         '--memory=0',
-        '--yes',
         '-t"1;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
         '-t"2;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
         '-t"3;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf"',
