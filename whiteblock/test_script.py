@@ -210,6 +210,16 @@ async def deploy_propose(nodes: List[int]) -> None:
     await asyncio.gather(*coroutines)
 
 
+@async_generator.asynccontextmanager
+async def background_task(event_loop: asyncio.AbstractEventLoop, task_function: Awaitable[Any]) -> AsyncGenerator[None, None]:
+    task = event_loop.create_task(task_function)
+    try:
+        yield
+    finally:
+        task.cancel()
+        await task
+
+
 async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
     await whiteblock_build()
 
@@ -222,33 +232,20 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
     ]
 
     logger.info('Starting test body')
-    logs_printer = event_loop.create_task(logs_printing_task(logs_queue))
-
-    bootstrap_node_ready_event = asyncio.Event()
-    validator_nodes_ready_event = asyncio.Event()
-    bootstrap_logs_enqueuer = event_loop.create_task(logs_enqueuing_task(logs_queue, [NODE_ID_FROM_NAME['bootstrap']], bootstrap_node_ready_event))
-
-    logger.info('Waiting for the bootstrap node readiness')
-    await bootstrap_node_ready_event.wait()
-    logger.info('Adding validator nodes')
-    await whiteblock_build_append()
-    logger.info('Done adding validators')
-
-    validators_logs_enqueuer = event_loop.create_task(logs_enqueuing_task(logs_queue, validator_nodes, validator_nodes_ready_event))
-
-    logger.info('Waiting for validators to be ready')
-    await validator_nodes_ready_event.wait()
-    logger.info('Starting propose loop')
-    await deploy_propose(validator_nodes)
-
-    validators_logs_enqueuer.cancel()
-    await validators_logs_enqueuer
-
-    bootstrap_logs_enqueuer.cancel()
-    await bootstrap_logs_enqueuer
-
-    logs_printer.cancel()
-    await logs_printer
+    async with background_task(event_loop, logs_printing_task(logs_queue)):
+        bootstrap_node_ready_event = asyncio.Event()
+        validator_nodes_ready_event = asyncio.Event()
+        async with background_task(event_loop, logs_enqueuing_task(logs_queue, [NODE_ID_FROM_NAME['bootstrap']], bootstrap_node_ready_event)):
+            logger.info('Waiting for the bootstrap node readiness')
+            await bootstrap_node_ready_event.wait()
+            logger.info('Adding validator nodes')
+            await whiteblock_build_append()
+            logger.info('Done adding validators')
+            async with background_task(event_loop, logs_enqueuing_task(logs_queue, validator_nodes, validator_nodes_ready_event)):
+                logger.info('Waiting for validators to be ready')
+                await validator_nodes_ready_event.wait()
+                logger.info('Starting propose loop')
+                await deploy_propose(validator_nodes)
 
 
 async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
