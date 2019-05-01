@@ -217,7 +217,6 @@ async def background_task(event_loop: asyncio.AbstractEventLoop, task_function: 
         raise
     else:
         task.cancel()
-        await task
 
 
 async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
