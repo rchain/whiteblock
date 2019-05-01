@@ -290,7 +290,10 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
 async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
     try:
         await test_body(event_loop)
-    except Exception:
+    except Exception as e:
+        if isinstance(e, NonZeroExitCodeError):
+            logger.info(e.stdout)
+            logger.info(e.stderr)
         logger.exception("Failure")
         return 1
 
