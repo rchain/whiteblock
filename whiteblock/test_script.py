@@ -6,6 +6,8 @@ import collections
 from typing import (
     List,
     Any,
+    Set,
+    Dict,
     Tuple,
     TypeVar,
     Awaitable,
@@ -188,6 +190,31 @@ async def propose(whiteblock_node_id: int) -> Tuple[str, str]:
     return await shell_out('whiteblock', args)
 
 
+async def mvdag(whiteblock_node_id: int) -> Tuple[str, str]:
+    args = [
+        'ssh',
+        str(whiteblock_node_id),
+        '--',
+        '/opt/docker/bin/rnode',
+        'mvdag',
+    ]
+    return await shell_out('whiteblock', args)
+
+
+def parse_mvdag(mvdag: str) -> Dict[str, Set[str]]:
+    dag: Dict[str, Set[str]] = collections.defaultdict(set)
+    for line in mvdag.splitlines():
+        parent_hash, child_hash = line.split(' ')
+        dag[parent_hash].add(child_hash)
+    return dag
+
+
+async def get_mvdag(whiteblock_node_id: int) -> Dict[str, Set[str]]:
+    (stdout, _) = await mvdag(whiteblock_node_id)
+    return parse_mvdag(stdout)
+
+
+
 async def deploy_propose_from_node(whiteblock_node_id: int) -> None:
     for _ in range(10):
         (stdout_data, stderr_data) = await deploy(whiteblock_node_id)
@@ -246,6 +273,19 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
                 logger.info('Starting propose loop')
                 await deploy_propose(validator_nodes)
 
+                await asyncio.sleep(30)
+
+                bootstrap_dag = await get_mvdag(NODE_ID_FROM_NAME['bootstrap'])
+                validatorA_dag = await get_mvdag(NODE_ID_FROM_NAME['validatorA'])
+                validatorB_dag = await get_mvdag(NODE_ID_FROM_NAME['validatorB'])
+                validatorC_dag = await get_mvdag(NODE_ID_FROM_NAME['validatorC'])
+                validatorD_dag = await get_mvdag(NODE_ID_FROM_NAME['validatorD'])
+
+                assert bootstrap_dag == validatorA_dag
+                assert bootstrap_dag == validatorB_dag
+                assert bootstrap_dag == validatorC_dag
+                assert bootstrap_dag == validatorD_dag
+
 
 async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
     try:
@@ -255,6 +295,30 @@ async def async_main(event_loop: asyncio.AbstractEventLoop) -> int:
         return 1
 
     return 0
+
+
+def test_parse_mvdag() -> None:
+    input = """d5db034e82e10ee1037454a70737ac9e1a6f4900d28590776b5ccc5eef087312 a75e6ec04d42b3fa0a02160d0bd2d19cbe563016283f362eb114f19c0a2bbad7
+a75e6ec04d42b3fa0a02160d0bd2d19cbe563016283f362eb114f19c0a2bbad7 9fa2d387275ff5019c26809e6d6b2ef6a250090892e3b9269fa303d19db15ee8
+3851ce1c5f7a26b444c45edde5cff7fae20aa5b90aa6ce882f058c7834d748d6 9fa2d387275ff5019c26809e6d6b2ef6a250090892e3b9269fa303d19db15ee8
+f591cea354b70a9c6b753d13d8912d7fd0219fd45b80f449a08431cb6b265ea2 9fa2d387275ff5019c26809e6d6b2ef6a250090892e3b9269fa303d19db15ee8
+9fa2d387275ff5019c26809e6d6b2ef6a250090892e3b9269fa303d19db15ee8 b29aaeb2ae774bfa573c4e5e37bc84bbaa1616263fd83c820b0dd9a795a57907
+879b1499c4bb5b8359559ab2a308ce76dd01ae1a3693f0edbdbf4a7126767d93 b29aaeb2ae774bfa573c4e5e37bc84bbaa1616263fd83c820b0dd9a795a57907
+b52e9a808053703353a16ea85a4cda5820a2af115bad87b6cebfef03111f5541 b29aaeb2ae774bfa573c4e5e37bc84bbaa1616263fd83c820b0dd9a795a57907
+b0880ca496258ebd0c8c36446ac7596681600e3ab90a9db44b464dd4767f5adf 9547694c620c3e78b39da3db3a2090aa863a0c1174686a4de105350f7d4e77f4"""
+
+    output = parse_mvdag(input)
+
+    assert output == {
+        "d5db034e82e10ee1037454a70737ac9e1a6f4900d28590776b5ccc5eef087312": set(['a75e6ec04d42b3fa0a02160d0bd2d19cbe563016283f362eb114f19c0a2bbad7']),
+        "a75e6ec04d42b3fa0a02160d0bd2d19cbe563016283f362eb114f19c0a2bbad7": set(['9fa2d387275ff5019c26809e6d6b2ef6a250090892e3b9269fa303d19db15ee8']),
+        "3851ce1c5f7a26b444c45edde5cff7fae20aa5b90aa6ce882f058c7834d748d6": set(['9fa2d387275ff5019c26809e6d6b2ef6a250090892e3b9269fa303d19db15ee8']),
+        "f591cea354b70a9c6b753d13d8912d7fd0219fd45b80f449a08431cb6b265ea2": set(['9fa2d387275ff5019c26809e6d6b2ef6a250090892e3b9269fa303d19db15ee8']),
+        "9fa2d387275ff5019c26809e6d6b2ef6a250090892e3b9269fa303d19db15ee8": set(['b29aaeb2ae774bfa573c4e5e37bc84bbaa1616263fd83c820b0dd9a795a57907']),
+        "879b1499c4bb5b8359559ab2a308ce76dd01ae1a3693f0edbdbf4a7126767d93": set(['b29aaeb2ae774bfa573c4e5e37bc84bbaa1616263fd83c820b0dd9a795a57907']),
+        "b52e9a808053703353a16ea85a4cda5820a2af115bad87b6cebfef03111f5541": set(['b29aaeb2ae774bfa573c4e5e37bc84bbaa1616263fd83c820b0dd9a795a57907']),
+        "b0880ca496258ebd0c8c36446ac7596681600e3ab90a9db44b464dd4767f5adf": set(['9547694c620c3e78b39da3db3a2090aa863a0c1174686a4de105350f7d4e77f4']),
+    }
 
 
 if __name__ == '__main__':
