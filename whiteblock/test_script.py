@@ -121,6 +121,7 @@ async def whiteblock_build() -> None:
         'build',
         '--blockchain=rchain',
         '--image={}'.format(image),
+        '--force-docker-pull',
         '--nodes={}'.format(1),
         '--validators={}'.format(validator_nodes),
         '--cpus=0',
