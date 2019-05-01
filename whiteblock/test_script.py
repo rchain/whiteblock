@@ -189,7 +189,7 @@ async def propose(whiteblock_node_id: int) -> Tuple[str, str]:
 
 
 async def deploy_propose_from_node(whiteblock_node_id: int) -> None:
-    for _ in range(200):
+    for _ in range(10):
         (stdout_data, stderr_data) = await deploy(whiteblock_node_id)
         for line in stdout_data.splitlines():
             logger.info('STDOUT {}'.format(line))
