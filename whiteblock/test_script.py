@@ -172,10 +172,8 @@ async def deploy(whiteblock_node_id: int) -> Tuple[str, str]:
         '--',
         '/opt/docker/bin/rnode',
         'deploy',
-        '--from=0x1',
         '--phlo-limit=1000000',
         '--phlo-price=1',
-        '--nonce=0',
         '/opt/docker/examples/dupe.rho',
     ]
     return await shell_out('whiteblock', args)
