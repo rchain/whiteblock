@@ -115,6 +115,7 @@ async def logs_printing_task(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
 
 
 async def whiteblock_build() -> None:
+    # The container needs to have apt-get update && apt-get install -y openssh-server procps
     image = 'rchainops/rnode:whiteblock'
     validator_nodes = 5
     build_args = [
