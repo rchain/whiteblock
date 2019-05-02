@@ -174,6 +174,7 @@ async def deploy(whiteblock_node_id: int) -> Tuple[str, str]:
         'deploy',
         '--phlo-limit=1000000',
         '--phlo-price=1',
+        '--private-key=b18e1d0045995ec3d010c387ccfeb984d783af8fbb0f40fa7db126d889f6dadd',
         '/opt/docker/examples/dupe.rho',
     ]
     return await shell_out('whiteblock', args)
