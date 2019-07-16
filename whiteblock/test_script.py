@@ -42,7 +42,7 @@ ElementType = TypeVar('ElementType')
 LogEntry = collections.namedtuple('LogEntry', ['node', 'line'])
 
 
-APPROVED_BLOCK_RECEIVED_LOG = 'Making a transition to ApprovedBlockRecievedHandler state.'
+APPROVED_BLOCK_RECEIVED_LOG = 'Making a transition to Running state.'
 
 
 NODE_NAME_FROM_ID = {
