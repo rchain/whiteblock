@@ -117,7 +117,7 @@ async def logs_printing_task(logs_queue: 'asyncio.Queue[LogEntry]') -> None:
 async def whiteblock_build() -> None:
     # The container needs to have apt-get update && apt-get install -y openssh-server procps
     image = 'rchainops/rnode:whiteblock'
-    validator_nodes = 5
+    validator_nodes = 4
     build_args = [
         'build',
         '--blockchain=rchain',
@@ -131,15 +131,15 @@ async def whiteblock_build() -> None:
         '-t"0;rchain.conf.mustache;/home/master/whiteblock/config/bootstrap.conf.mustache"',
         '-o',
         'command=/opt/docker/bin/rnode',
-        '-t privatekeys.json=/home/master/whiteblock/config/privatekeys.json',
-        '-t publickeys.json=/home/master/whiteblock/config/publickeys.json',
+        '-tprivatekeys.json=/home/master/whiteblock/config/privatekeys.json',
+        '-tpublickeys.json=/home/master/whiteblock/config/publickeys.json',
     ]
     await shell_out('whiteblock', build_args)
 
 
 async def whiteblock_build_append() -> None:
     image = 'rchainops/rnode:whiteblock'
-    validator_nodes = 5
+    validator_nodes = 4
     build_args = [
         'build',
         'append',
@@ -148,13 +148,10 @@ async def whiteblock_build_append() -> None:
         '--nodes={}'.format(validator_nodes),
         '--cpus=0',
         '--memory=0',
-        '-t"1;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
-        '-t"2;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
-        '-t"3;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
-        '-t"4;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
+        '-trchain.conf.mustache=/home/master/whiteblock/config/validator.conf.mustache"',
         '-y',
-        '-t privatekeys.json=/home/master/whiteblock/config/privatekeys.json',
-        '-t publickeys.json=/home/master/whiteblock/config/publickeys.json',
+        '-tprivatekeys.json=/home/master/whiteblock/config/privatekeys.json',
+        '-tpublickeys.json=/home/master/whiteblock/config/publickeys.json',
     ]
     await shell_out('whiteblock', build_args)
 
