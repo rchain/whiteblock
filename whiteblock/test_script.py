@@ -131,6 +131,8 @@ async def whiteblock_build() -> None:
         '-t"0;rchain.conf.mustache;/home/master/whiteblock/config/bootstrap.conf.mustache"',
         '-o',
         'command=/opt/docker/bin/rnode',
+        '-t privatekeys.json=/home/master/whiteblock/config/privatekeys.json',
+        '-t publickeys.json=/home/master/whiteblock/config/publickeys.json',
     ]
     await shell_out('whiteblock', build_args)
 
@@ -151,6 +153,8 @@ async def whiteblock_build_append() -> None:
         '-t"3;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
         '-t"4;rchain.conf.mustache;/home/master/whiteblock/config/validator.conf.mustache"',
         '-y',
+        '-t privatekeys.json=/home/master/whiteblock/config/privatekeys.json',
+        '-t publickeys.json=/home/master/whiteblock/config/publickeys.json',
     ]
     await shell_out('whiteblock', build_args)
 
