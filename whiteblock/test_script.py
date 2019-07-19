@@ -148,7 +148,7 @@ async def whiteblock_build_append() -> None:
         '--nodes={}'.format(validator_nodes),
         '--cpus=0',
         '--memory=0',
-        '-trchain.conf.mustache=/home/master/whiteblock/config/validator.conf.mustache"',
+        '-trchain.conf.mustache=/home/master/whiteblock/config/validator.conf.mustache',
         '-y',
         '-tprivatekeys.json=/home/master/whiteblock/config/privatekeys.json',
         '-tpublickeys.json=/home/master/whiteblock/config/publickeys.json',
