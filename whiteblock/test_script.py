@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import json
 import asyncio
 import collections
 from typing import (
@@ -167,7 +168,7 @@ async def shell_out(command: str, args: List[str]) -> Tuple[str, str]:
     return (stdout_str, stderr_str)
 
 
-async def deploy(whiteblock_node_id: int) -> Tuple[str, str]:
+async def deploy(whiteblock_node_id: int, private_key: str) -> Tuple[str, str]:
     args = [
         'ssh',
         str(whiteblock_node_id),
@@ -176,7 +177,7 @@ async def deploy(whiteblock_node_id: int) -> Tuple[str, str]:
         'deploy',
         '--phlo-limit=1000000',
         '--phlo-price=1',
-        '--private-key=b18e1d0045995ec3d010c387ccfeb984d783af8fbb0f40fa7db126d889f6dadd',
+        '--private-key={}'.format(private_key),
         '/opt/docker/examples/dupe.rho',
     ]
     return await shell_out('whiteblock', args)
@@ -218,9 +219,9 @@ async def get_mvdag(whiteblock_node_id: int) -> Dict[str, Set[str]]:
 
 
 
-async def deploy_propose_from_node(whiteblock_node_id: int) -> None:
+async def deploy_propose_from_node(whiteblock_node_id: int, private_key: str) -> None:
     for _ in range(10):
-        (stdout_data, stderr_data) = await deploy(whiteblock_node_id)
+        (stdout_data, stderr_data) = await deploy(whiteblock_node_id, private_key)
         for line in stdout_data.splitlines():
             logger.info('STDOUT {}'.format(line))
         for line in stderr_data.splitlines():
@@ -232,8 +233,8 @@ async def deploy_propose_from_node(whiteblock_node_id: int) -> None:
             logger.info('STDERR {}'.format(line))
 
 
-async def deploy_propose(nodes: List[int]) -> None:
-    coroutines = [deploy_propose_from_node(node_id) for node_id in nodes]
+async def deploy_propose(nodes: List[Tuple[int, str]]) -> None:
+    coroutines = [deploy_propose_from_node(node_id, private_key) for (node_id, private_key) in nodes]
     await asyncio.gather(*coroutines)
 
 
@@ -250,6 +251,9 @@ async def background_task(event_loop: asyncio.AbstractEventLoop, task_function: 
 
 
 async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
+    with open('config/privatekeys.json') as file:
+        private_keys = json.load(file)
+
     await whiteblock_build()
 
     logs_queue: asyncio.Queue[LogEntry] = asyncio.Queue(maxsize=1024)
@@ -259,6 +263,8 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
         NODE_ID_FROM_NAME['validatorC'],
         NODE_ID_FROM_NAME['validatorD'],
     ]
+
+    validator_nodes_with_private_keys = list(zip(validator_nodes, private_keys))
 
     logger.info('Starting test body')
     async with background_task(event_loop, logs_printing_task(logs_queue)):
@@ -274,7 +280,7 @@ async def test_body(event_loop: asyncio.AbstractEventLoop) -> None:
                 logger.info('Waiting for validators to be ready')
                 await validator_nodes_ready_event.wait()
                 logger.info('Starting propose loop')
-                await deploy_propose(validator_nodes)
+                await deploy_propose(validator_nodes_with_private_keys)
 
                 await asyncio.sleep(30)
 
